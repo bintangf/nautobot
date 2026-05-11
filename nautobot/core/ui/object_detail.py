@@ -1720,6 +1720,25 @@ class ObjectFieldsPanel(KeyValueTablePanel):
                 display = transform(display)
             return display
 
+        # If the field instance could not be resolved (for example nested lookups like "a__b") or the field is
+        # missing, fall back to formatting based on the runtime type of the value. This ensures date/time values
+        # remain timezone-aware even when get_field() fails.
+        if field_instance is None or LOOKUP_SEP in key:
+            import datetime as _dt
+            from django.utils import timezone as _timezone
+            from django.utils.formats import date_format as _date_format
+
+            # Prefer datetime handling first (subclass of date)
+            if isinstance(value, _dt.datetime):
+                try:
+                    value_local = _timezone.localtime(value)
+                except Exception:
+                    value_local = value
+                return _date_format(value_local, format="DATETIME_FORMAT")
+
+            if isinstance(value, _dt.date):
+                return _date_format(value, format="DATE_FORMAT")
+
         if key == "_hierarchy":
             return render_ancestor_hierarchy(value)
 
